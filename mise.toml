@@ -1,0 +1,5 @@
+[tools]
+aws-sam-cli = { version = "latest", symlink_bins = "true" }
+awscli = { version = "latest", symlink_bins = "true" }
+python = "3.12"
+uv = "latest"
