@@ -12,4 +12,27 @@ dependencies = [
 [dependency-groups]
 dev = [
     "awscli-local>=0.22.2",
+    "boto3-stubs[dynamodb,sns]>=1.42.49",
+    "mypy>=1.19.1",
+    "ruff>=0.15.1",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+# E, F: 基本ルール / I: インポート順 / B: バグ指摘 / ANN: 型ヒント強制
+select = ["E", "F", "I", "B", "ANN"]
+ignore = ["ANN101", "ANN102"] # self, cls への型指定は除外
+
+[tool.mypy]
+python_version = "3.12"
+strict = true  # 厳格モード：型推論できない箇所をエラーにする
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true # 関数定義に型ヒントを必須にする
+
+[[tool.mypy.overrides]]
+module = "feedparser.*"
+ignore_missing_imports = true # 型定義がないライブラリは無視

@@ -3,3 +3,11 @@ aws-sam-cli = { version = "latest", symlink_bins = "true" }
 awscli = { version = "latest", symlink_bins = "true" }
 python = "3.12"
 uv = "latest"
+
+[tasks.lint]
+description = "コードの整形と型チェック"
+run = [
+  "uv run ruff format src",
+  "uv run ruff check --fix src",
+  "uv run mypy src"
+]
