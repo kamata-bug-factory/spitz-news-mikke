@@ -1,0 +1,15 @@
+[project]
+name = "spitz-news-mikke"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.42.49",
+    "feedparser>=6.0.12",
+]
+
+[dependency-groups]
+dev = [
+    "awscli-local>=0.22.2",
+]
