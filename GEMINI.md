@@ -15,6 +15,7 @@
 
 ## 3. コーディングルール
 - Python の関数には必ず Google スタイルの Docstring を記述すること。
+- Python のコードを修正した後は、必ず `uv run ruff check src/` と `uv run mypy src/` で静的解析を実行し、エラーがないことを確認すること。
 - 依存関係の追加には次のコマンドを使用すること。
   - 本番用: `uv add [package]`
   - 開発・テスト用: `uv add --dev [package]`
@@ -23,6 +24,7 @@
 
 ## 4. 実行・ビルド方法
 - 依存関係インストール: `uv sync`
+- 静的解析 (Linter/Type Check): `uv run ruff check src/ && uv run mypy src/`
 - LocalStack 起動: `docker compose up -d`
 - ビルド: `uv export --format requirements-txt > src/requirements.txt && sam build`
 - ローカル実行テスト: `sam local invoke [FunctionName] --event events/schedule_event.json`
