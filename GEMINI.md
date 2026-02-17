@@ -3,7 +3,7 @@
 ## 1. 概要
 - スピッツのニュース一覧フィード (https://spitz-web.com/news/feed) をパースする。
 - 新着ニュースがある場合、DynamoDB で既読管理を行い、SNS経由でメール通知する。
-- AWS SAM を使用し、EventBridge (Scheduler) で定期実行する。
+- AWS SAM を使用し、EventBridge (Scheduler) で毎時10分に定期実行する。
 
 ## 2. 技術スタック
 - Language: Python 3.12 (Managed by mise)
