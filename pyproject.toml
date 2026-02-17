@@ -11,6 +11,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "aws-lambda-typing>=2.20.0",
     "aws-sam-cli-local>=1.70.0",
     "awscli-local>=0.22.2",
     "boto3-stubs[dynamodb,sns]>=1.42.49",
