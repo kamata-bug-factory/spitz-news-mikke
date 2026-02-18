@@ -1,3 +1,4 @@
+import calendar
 import json
 import logging
 import os
@@ -13,36 +14,21 @@ logger = logging.getLogger()
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
 
 
-def extract_article_id(link: str) -> int:
-    """Extracts the article ID from the news link.
-
-    Args:
-        link (str): The URL of the news article (e.g., https://spitz-web.com/news/7913/).
-
-    Returns:
-        int: The extracted article ID (e.g., 7913).
-    """
-    try:
-        return int(link.rstrip("/").split("/")[-1])
-    except ValueError as e:
-        logger.error("Failed to extract article ID from link: %s. Error: %s", link, e)
-        raise
-
-
-def filter_new_articles(feed_entries: list[Any], last_seen_id: int) -> list[Any]:
-    """Filters new articles from the feed entries based on the last seen ID.
+def filter_new_articles(feed_entries: list[Any], last_seen_timestamp: int) -> list[Any]:
+    """Filters new articles from the feed entries based on the last seen timestamp.
 
     Args:
         feed_entries (list[Any]): A list of feed entry objects.
-        last_seen_id (int): The ID of the last processed article.
+        last_seen_timestamp (int): UTC timestamp of the last processed article.
 
     Returns:
         list[Any]: A list of new article entries, sorted from oldest to newest.
     """
     new_articles = []
     for entry in feed_entries:
-        entry_id = extract_article_id(entry.link)
-        if entry_id <= last_seen_id:
+        # published_parsed is a time.struct_time in UTC
+        entry_timestamp = calendar.timegm(entry.published_parsed)
+        if entry_timestamp <= last_seen_timestamp:
             break
         new_articles.append(entry)
 
@@ -92,23 +78,21 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
     table = dynamodb.Table(table_name)
 
     try:
-        # Simulate getting the last seen article ID from DynamoDB
-        # In a real scenario, you'd fetch the actual last processed item.
-        response = table.get_item(Key={"settingName": "last_seen_article_id"})
+        # Get the last seen publication timestamp from DynamoDB
+        response = table.get_item(Key={"settingName": "last_seen_pub_timestamp"})
         item = response.get("Item")
-        raw_last_seen_id = item.get("value") if item else None
+        raw_last_timestamp = item.get("value") if item else None
 
-        # If not found in DB, default to 0.
-        # Otherwise, cast to int (raises ValueError if invalid).
-        if raw_last_seen_id is None:
-            last_seen_article_id = 0
-        elif isinstance(raw_last_seen_id, (str, int, float, Decimal)):
-            last_seen_article_id = int(raw_last_seen_id)
+        if raw_last_timestamp is None:
+            last_seen_timestamp = 0
+        elif isinstance(raw_last_timestamp, (int, float, Decimal)):
+            last_seen_timestamp = int(raw_last_timestamp)
         else:
-            # For other unexpected types from DynamoDB (e.g. Binary), raise TypeError
-            raise TypeError(f"Unexpected type for article ID: {type(raw_last_seen_id)}")
+            raise TypeError(
+                f"Unexpected type for timestamp: {type(raw_last_timestamp)}"
+            )
 
-        logger.info("Last seen article ID: %d", last_seen_article_id)
+        logger.info("Last seen pub timestamp: %d", last_seen_timestamp)
 
         SPITZ_NEWS_FEED_URL = "https://spitz-web.com/news/feed"
         feed = feedparser.parse(SPITZ_NEWS_FEED_URL)
@@ -120,67 +104,55 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
                 "body": json.dumps({"message": "No entries found in feed."}),
             }
 
-        latest_feed_article = feed.entries[0]
-        latest_feed_article_id = extract_article_id(latest_feed_article.link)
+        new_articles = filter_new_articles(feed.entries, last_seen_timestamp)
 
-        if latest_feed_article_id > last_seen_article_id:
-            new_articles = filter_new_articles(feed.entries, last_seen_article_id)
+        if new_articles:
+            # The newest article's timestamp will be the new baseline
+            latest_feed_timestamp = calendar.timegm(feed.entries[0].published_parsed)
 
-            if new_articles:
-                # Update the last seen article ID in DynamoDB
-                table.put_item(
-                    Item={
-                        "settingName": "last_seen_article_id",
-                        "value": latest_feed_article_id,
+            # Update the last seen timestamp in DynamoDB
+            table.put_item(
+                Item={
+                    "settingName": "last_seen_pub_timestamp",
+                    "value": latest_feed_timestamp,
+                }
+            )
+            logger.info("Updated last seen timestamp to: %d", latest_feed_timestamp)
+
+            message_body = "新しいスピッツのニュースがあります！\n\n"
+            for article in new_articles:
+                message_body += f"タイトル: {article.title}\n"
+                message_body += f"URL: {article.link}\n"
+                message_body += f"公開日: {article.published}\n\n"
+
+            sns.publish(
+                TopicArn=topic_arn,
+                Message=message_body,
+                Subject=(
+                    f"【スピッツニュース】新着ニュース "
+                    f"({len(new_articles)}件) があります！"
+                ),
+            )
+            logger.info(
+                "Published SNS notification with %d new articles.",
+                len(new_articles),
+            )
+
+            return {
+                "statusCode": 200,
+                "body": json.dumps(
+                    {
+                        "message": (
+                            f"Found and notified about {len(new_articles)} "
+                            "new articles."
+                        )
                     }
-                )
-                logger.info(
-                    "Updated last seen article ID to: %d", latest_feed_article_id
-                )
-
-                message_body = "新しいスピッツのニュースがあります！\n\n"
-                for article in new_articles:
-                    message_body += f"タイトル: {article.title}\n"
-                    message_body += f"URL: {article.link}\n"
-                    message_body += f"公開日: {article.published}\n\n"
-
-                sns.publish(
-                    TopicArn=topic_arn,
-                    Message=message_body,
-                    Subject=(
-                        f"【スピッツニュース】新着ニュース "
-                        f"({len(new_articles)}件) があります！"
-                    ),
-                )
-                logger.info(
-                    "Published SNS notification with %d new articles.",
-                    len(new_articles),
-                )
-
-                return {
-                    "statusCode": 200,
-                    "body": json.dumps(
-                        {
-                            "message": (
-                                f"Found and notified about {len(new_articles)} "
-                                "new articles."
-                            )
-                        }
-                    ),
-                }
-            else:
-                logger.info(
-                    "No new articles found since last check "
-                    "(IDs match but content might be updated)."
-                )
-                return {
-                    "statusCode": 200,
-                    "body": json.dumps({"message": "No new articles found."}),
-                }
+                ),
+            }
         else:
             logger.info(
-                "No new news found. Latest article ID is still %d.",
-                last_seen_article_id,
+                "No new news found. Baseline timestamp remains %d.",
+                last_seen_timestamp,
             )
             return {
                 "statusCode": 200,

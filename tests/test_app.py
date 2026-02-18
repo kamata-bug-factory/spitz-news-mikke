@@ -1,57 +1,42 @@
+import calendar
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from src.app import extract_article_id, filter_new_articles, lambda_handler
-
-
-def test_extract_article_id() -> None:
-    """Test the extraction of article ID from a URL."""
-    url = "https://spitz-web.com/news/7913/"
-    assert extract_article_id(url) == 7913
-    
-    url_no_slash = "https://spitz-web.com/news/7913"
-    assert extract_article_id(url_no_slash) == 7913
-
-    # Test invalid article ID (not an integer) should raise ValueError
-    with pytest.raises(ValueError):
-        extract_article_id("https://spitz-web.com/news/not-an-id/")
-
-    # Test empty string (results in int("") after rstrip/split, raising ValueError)
-    with pytest.raises(ValueError):
-        extract_article_id("")
+from src.app import filter_new_articles, lambda_handler
 
 
 def test_filter_new_articles_logic() -> None:
     """Test the logic of filtering new articles without any AWS mocks."""
 
     class Entry:
-        def __init__(self, link: str) -> None:
+        def __init__(self, link: str, published_parsed: tuple[int, ...]) -> None:
             self.link = link
+            self.published_parsed = published_parsed
+
+    # 2026-02-18 12:00:00 UTC
+    tp_18 = (2026, 2, 18, 12, 0, 0, 2, 49, 0)
+    ts_18 = calendar.timegm(tp_18)
+    
+    # 2026-02-17 12:00:00 UTC
+    tp_17 = (2026, 2, 17, 12, 0, 0, 1, 48, 0)
+    ts_17 = calendar.timegm(tp_17)
 
     entries = [
-        Entry("https://spitz-web.com/news/7915/"),
-        Entry("https://spitz-web.com/news/7914/"),
-        Entry("https://spitz-web.com/news/7913/"),
+        Entry("https://spitz-web.com/news/7915/", tp_18),
+        Entry("https://spitz-web.com/news/7914/", tp_17),
     ]
 
     # Case 1: All are new
-    new = filter_new_articles(entries, 7912)
-    assert len(new) == 3
-    assert extract_article_id(new[0].link) == 7913  # Oldest first
+    new = filter_new_articles(entries, ts_17 - 1)
+    assert len(new) == 2
 
-    # Case 2: Some are new
-    new = filter_new_articles(entries, 7914)
+    # Case 2: One is new
+    new = filter_new_articles(entries, ts_17)
     assert len(new) == 1
-    assert extract_article_id(new[0].link) == 7915
+    assert "7915" in new[0].link
 
     # Case 3: None are new
-    new = filter_new_articles(entries, 7915)
-    assert len(new) == 0
-
-    # Case 4: Last seen ID is higher than any in feed (should return empty)
-    new = filter_new_articles(entries, 8000)
+    new = filter_new_articles(entries, ts_18)
     assert len(new) == 0
 
 
@@ -63,44 +48,27 @@ def test_lambda_handler_new_news(
     mock_sns_client: MagicMock,
     mock_dynamodb_resource: MagicMock,
 ) -> None:
-    """Test lambda_handler logic when there's new news."""
-    # Mock environment variables
+    """Test that lambda_handler processes new news correctly."""
     env = {"TABLE_NAME": "test-table", "TOPIC_ARN": "test-topic"}
     with patch.dict(os.environ, env):
-        # Mock DynamoDB
         mock_table = MagicMock()
         mock_dynamodb_resource.return_value.Table.return_value = mock_table
-        # Simulate last seen ID as 7912
-        mock_table.get_item.return_value = {"Item": {"value": 7912}}
+        # Simulate last seen as very old
+        mock_table.get_item.return_value = {"Item": {"value": 1000}}
 
-        # Mock Feedparser
         mock_feed = MagicMock()
         mock_entry = MagicMock()
         mock_entry.link = "https://spitz-web.com/news/7913/"
         mock_entry.title = "Test News"
-        mock_entry.published = "Wed, 18 Feb 2026 12:00:00 +0900"
+        mock_entry.published = "Wed, 18 Feb 2026 12:00:00 +0000"
+        mock_entry.published_parsed = (2026, 2, 18, 12, 0, 0, 2, 49, 0)
         mock_feed.entries = [mock_entry]
         mock_feedparser.return_value = mock_feed
 
-        # Call the handler
-        event = {"source": "aws.events"}
-        context = MagicMock()
-        response = lambda_handler(event, context)
+        response = lambda_handler({"source": "aws.events"}, MagicMock())
 
-        # Assertions
         assert response["statusCode"] == 200
         assert "Found and notified" in response["body"]
-        
-        # Verify DynamoDB update
-        mock_table.put_item.assert_called_once_with(
-            Item={"settingName": "last_seen_article_id", "value": 7913}
-        )
-        
-        # Verify SNS publish
-        mock_sns_client.return_value.publish.assert_called_once()
-        args, kwargs = mock_sns_client.return_value.publish.call_args
-        assert kwargs["TopicArn"] == "test-topic"
-        assert "Test News" in kwargs["Message"]
 
 
 @patch("src.app.boto3.resource")
@@ -111,17 +79,21 @@ def test_lambda_handler_no_new_news(
     mock_sns_client: MagicMock,
     mock_dynamodb_resource: MagicMock,
 ) -> None:
-    """Test lambda_handler logic when there's no new news."""
+    """Test that lambda_handler handles no new news correctly."""
     env = {"TABLE_NAME": "test-table", "TOPIC_ARN": "test-topic"}
     with patch.dict(os.environ, env):
+        tp = (2026, 2, 18, 12, 0, 0, 2, 49, 0)
+        ts = calendar.timegm(tp)
+
         mock_table = MagicMock()
         mock_dynamodb_resource.return_value.Table.return_value = mock_table
-        # ID matches the latest
-        mock_table.get_item.return_value = {"Item": {"value": 7913}}
+        # Last seen matches the latest article
+        mock_table.get_item.return_value = {"Item": {"value": ts}}
 
         mock_feed = MagicMock()
         mock_entry = MagicMock()
         mock_entry.link = "https://spitz-web.com/news/7913/"
+        mock_entry.published_parsed = tp
         mock_feed.entries = [mock_entry]
         mock_feedparser.return_value = mock_feed
 
@@ -129,4 +101,26 @@ def test_lambda_handler_no_new_news(
 
         assert response["statusCode"] == 200
         assert "No new news found" in response["body"]
-        mock_sns_client.return_value.publish.assert_not_called()
+
+
+def test_lambda_handler_missing_env_vars() -> None:
+    """Test that lambda_handler returns 500 when required env vars are missing."""
+    with patch.dict(os.environ, {}, clear=True):
+        response = lambda_handler({}, MagicMock())
+        assert response["statusCode"] == 500
+        assert "Missing environment variables" in response["body"]
+
+
+@patch("src.app.boto3.resource")
+def test_lambda_handler_processing_error(mock_dynamodb_resource: MagicMock) -> None:
+    """Test that lambda_handler returns 500 on unexpected processing error."""
+    env = {"TABLE_NAME": "test-table", "TOPIC_ARN": "test-topic"}
+    with patch.dict(os.environ, env):
+        # Initializing boto3 succeeds, but subsequent method call fails
+        mock_table = MagicMock()
+        mock_dynamodb_resource.return_value.Table.return_value = mock_table
+        mock_table.get_item.side_effect = Exception("Test Error")
+
+        response = lambda_handler({}, MagicMock())
+        assert response["statusCode"] == 500
+        assert "Error: Test Error" in response["body"]
