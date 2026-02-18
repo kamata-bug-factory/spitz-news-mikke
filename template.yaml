@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  spitz-news-mikke
+
+  Sample SAM Template for spitz-news-mikke
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.12
+
+Resources:
+  NewsFetcherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.lambda_handler
+      Architectures:
+        - x86_64
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref AppConfigTable
+          TOPIC_ARN: !Ref NewsNotificationTopic
+          LOG_LEVEL: "INFO"
+          # The following variables are for local development (LocalStack)
+          # and are overridden by env.json during 'sam local invoke'.
+          AWS_ENDPOINT_URL: ""
+          AWS_DEFAULT_REGION: ""
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AppConfigTable
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt NewsNotificationTopic.TopicName
+      Events:
+        Schedule:
+          Type: Schedule
+          Properties:
+            Schedule: cron(10 * * * ? *)
+            Name: HourlyNewsCheckSchedule
+            Description: "Schedule to check Spitz news feed"
+            Enabled: true
+
+  NewsFetcherFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${NewsFetcherFunction}
+      RetentionInDays: 7
+
+  AppConfigTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      TableName: news-fetcher-app-settings
+      PrimaryKey:
+        Name: settingName
+        Type: String
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  NewsNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: news-fetcher-notifications
+
+  EmailNotificationSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: your-email@example.com
+      Protocol: email
+      TopicArn: !Ref NewsNotificationTopic
+
+Outputs:
+  NewsFetcherFunction:
+    Description: "News Fetcher Lambda Function ARN"
+    Value: !GetAtt NewsFetcherFunction.Arn
+  NewsFetcherFunctionIamRole:
+    Description: "Implicit IAM Role created for News Fetcher function"
+    Value: !GetAtt NewsFetcherFunctionRole.Arn
+  AppConfigTableName:
+    Description: "App Config DynamoDB table name"
+    Value: !Ref AppConfigTable
+  NewsNotificationTopicArn:
+    Description: "News Notification SNS topic ARN"
+    Value: !Ref NewsNotificationTopic
