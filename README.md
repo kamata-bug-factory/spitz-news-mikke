@@ -12,14 +12,14 @@
 ## 技術スタック
 
 -   **Language**: Python 3.12
--   **Package Manager**: [uv](https://github.com/astral-sh/uv)
+-   **Package Manager**: uv
 -   **Infrastructure**: AWS SAM (Lambda, DynamoDB, SNS, EventBridge)
 -   **Local Development**: LocalStack, aws-sam-cli-local, awscli-local
 
 ## 前提条件
 
--   [mise](https://mise.jdx.dev/) (Python, uv, AWS SAM CLI, AWS CLI の管理)
--   [Docker](https://www.docker.com/) (LocalStack 用)
+-   mise (Python, uv, AWS SAM CLI, AWS CLI の管理)
+-   Docker (LocalStack 用)
 
 ## セットアップ
 
