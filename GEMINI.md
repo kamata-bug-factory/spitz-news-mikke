@@ -27,7 +27,7 @@
 - 静的解析 (Linter/Type Check): `uv run ruff check src/ && uv run mypy src/`
 - LocalStack 起動: `docker compose up -d`
 - ビルド: `uv export --format requirements-txt > src/requirements.txt && sam build`
-- ローカル実行テスト: `sam local invoke [FunctionName] --event events/schedule_event.json`
+- ローカル実行テスト: `sam local invoke [FunctionName] --event events/schedule_event.json --env-vars env.json`
 - デプロイ:
   - 本番環境: `sam deploy --guided`
   - ローカル検証環境: `uv run samlocal deploy --guided`
