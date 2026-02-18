@@ -1,2 +1,7 @@
 volume/
 __pycache__/
+.venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.aws-sam/
