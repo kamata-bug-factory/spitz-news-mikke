@@ -76,7 +76,7 @@ sam local invoke NewsFetcherFunction --event events/schedule_event.json --env-va
 mise run lint
 ```
 
-### テストの実行
+### ユニットテストの実行
 
 ```bash
 uv run pytest
