@@ -35,18 +35,6 @@ mise install
 uv sync
 ```
 
-### 3. ローカル環境の起動 (LocalStack)
-
-```bash
-docker compose up -d
-```
-
-### 4. ローカルへのデプロイ
-
-```bash
-uv run samlocal deploy --guided
-```
-
 ## テスト
 
 ### 静的解析 (Lint & Type Check)
