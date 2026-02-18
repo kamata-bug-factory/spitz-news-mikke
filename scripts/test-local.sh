@@ -5,6 +5,15 @@ set -e
 echo "Ensuring LocalStack is running..."
 docker compose up -d
 
+# LocalStackが起動してリクエストを受け付けられるようになるまで待機
+echo "Waiting for LocalStack to be ready..."
+until curl -s http://localhost:4566/_localstack/health | grep -q '"dynamodb": "available"'; do
+    sleep 2
+done
+
+# リソースの初期化
+uv run ./scripts/localstack-init.sh
+
 # 2. ビルド
 echo "Building SAM application..."
 uv export --format requirements-txt > src/requirements.txt
