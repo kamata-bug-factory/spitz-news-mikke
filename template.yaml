@@ -5,6 +5,15 @@ Description: >
 
   Sample SAM Template for spitz-news-mikke
 
+Parameters:
+  NotificationEmail:
+    Type: String
+    Description: "Email address for news notifications. Leave empty to skip subscription."
+    Default: ""
+
+Conditions:
+  HasNotificationEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
+
 Globals:
   Function:
     Timeout: 30
@@ -66,8 +75,9 @@ Resources:
 
   EmailNotificationSubscription:
     Type: AWS::SNS::Subscription
+    Condition: HasNotificationEmail
     Properties:
-      Endpoint: your-email@example.com
+      Endpoint: !Ref NotificationEmail
       Protocol: email
       TopicArn: !Ref NewsNotificationTopic
 

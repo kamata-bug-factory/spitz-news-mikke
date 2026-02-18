@@ -34,10 +34,10 @@
     "!ImportValue",
     "!Condition",
     "!Equals sequence",
-    "!And",
-    "!If",
-    "!Not",
-    "!Or"
+    "!And sequence",
+    "!If sequence",
+    "!Not sequence",
+    "!Or sequence"
   ],
   "[dockercompose]": {
     "editor.defaultFormatter": "redhat.vscode-yaml",
