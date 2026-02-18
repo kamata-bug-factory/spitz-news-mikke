@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# 1. LocalStackの起動 (既に起動していれば何もしない)
+# 1. LocalStackの起動
 echo "Ensuring LocalStack is running..."
 docker compose up -d
 
@@ -15,3 +15,7 @@ echo "Invoking Lambda function locally..."
 sam local invoke NewsFetcherFunction \
     --event events/schedule_event.json \
     --env-vars env.json
+
+# 4. LocalStackの停止
+echo "Stopping LocalStack..."
+docker compose down
