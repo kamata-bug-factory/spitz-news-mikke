@@ -47,42 +47,23 @@ docker compose up -d
 uv run samlocal deploy --guided
 ```
 
-## ローカル実行・テスト
+## テスト
 
-### 各種スクリプト
-
-ローカルでの検証用に以下のスクリプトを用意しています。
-
--   `scripts/localstack-init.sh`: LocalStack 上に DynamoDB テーブルと SNS Topic を作成します。
--   `scripts/test-local.sh`: LocalStack の起動、ビルド、Lambda のローカル実行をまとめて行います。
-
-### Lambda の単体実行
-
-`env.json` に LocalStack 用の環境変数を設定した上で、以下のコマンドを実行します。
+### 静的解析 (Lint & Type Check)
 
 ```bash
-# ビルド
-uv export --format requirements-txt > src/requirements.txt
-sam build
-
-# 実行
-sam local invoke NewsFetcherFunction --event events/schedule_event.json --env-vars env.json
-```
-
-### 静的解析
-
-```bash
-# Lint & Type Check (Ruff, mypy)
 mise run lint
 ```
 
-### ユニットテストの実行
+### ユニットテスト
 
 ```bash
 uv run pytest
 ```
 
-### ローカル実行テスト (LocalStack 起動〜停止まで)
+### ローカル実行テスト (E2E)
+
+LocalStack の起動、ビルド、Lambda の実行、LocalStack の停止をまとめて行います。
 
 ```bash
 mise run test:local
