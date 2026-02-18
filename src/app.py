@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from decimal import Decimal
 from typing import Any
 
 import boto3
@@ -64,12 +65,14 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
     """
     logger.info("Received event: %s", json.dumps(event))
 
-    # Get table name and topic ARN from environment variables
+    # Get configuration from environment variables
     table_name = os.environ.get("TABLE_NAME")
     topic_arn = os.environ.get("TOPIC_ARN")
 
     if not table_name or not topic_arn:
-        logger.error("Environment variables TABLE_NAME or TOPIC_ARN are not set.")
+        logger.error(
+            "Required environment variables (TABLE_NAME, TOPIC_ARN) are missing."
+        )
         return {
             "statusCode": 500,
             "body": json.dumps(
@@ -77,9 +80,16 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
             ),
         }
 
-    dynamodb = boto3.resource("dynamodb")
+    if os.environ.get("AWS_SAM_LOCAL") == "true":
+        endpoint_url = os.environ.get("AWS_ENDPOINT_URL")
+        logger.info("Running in SAM Local. Endpoint: %s", endpoint_url)
+        dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url)
+        sns = boto3.client("sns", endpoint_url=endpoint_url)
+    else:
+        dynamodb = boto3.resource("dynamodb")
+        sns = boto3.client("sns")
+
     table = dynamodb.Table(table_name)
-    sns = boto3.client("sns")
 
     try:
         # Simulate getting the last seen article ID from DynamoDB
@@ -92,7 +102,7 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
         # Otherwise, cast to int (raises ValueError if invalid).
         if raw_last_seen_id is None:
             last_seen_article_id = 0
-        elif isinstance(raw_last_seen_id, (str, int, float)):
+        elif isinstance(raw_last_seen_id, (str, int, float, Decimal)):
             last_seen_article_id = int(raw_last_seen_id)
         else:
             # For other unexpected types from DynamoDB (e.g. Binary), raise TypeError
