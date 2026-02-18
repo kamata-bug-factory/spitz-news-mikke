@@ -11,3 +11,7 @@ run = [
   "uv run ruff check --fix src",
   "uv run mypy src"
 ]
+
+[tasks."test:local"]
+description = "LocalStackを使用したローカル実行テスト"
+run = "./scripts/test-local.sh"
