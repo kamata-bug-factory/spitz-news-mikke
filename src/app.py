@@ -28,6 +28,29 @@ def extract_article_id(link: str) -> int:
         raise
 
 
+def filter_new_articles(feed_entries: list[Any], last_seen_id: int) -> list[Any]:
+    """Filters new articles from the feed entries based on the last seen ID.
+
+    Args:
+        feed_entries (list[Any]): A list of feed entry objects.
+        last_seen_id (int): The ID of the last processed article.
+
+    Returns:
+        list[Any]: A list of new article entries, sorted from oldest to newest.
+    """
+    new_articles = []
+    for entry in feed_entries:
+        entry_id = extract_article_id(entry.link)
+        if entry_id <= last_seen_id:
+            break
+        new_articles.append(entry)
+
+    # Newest articles are at the beginning of the feed,
+    # but we want to report them oldest to newest.
+    new_articles.reverse()
+    return new_articles
+
+
 def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
     """
     Handles incoming EventBridge scheduled events to check for new Spitz news.
@@ -90,19 +113,10 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
         latest_feed_article = feed.entries[0]
         latest_feed_article_id = extract_article_id(latest_feed_article.link)
 
-        if latest_feed_article_id != last_seen_article_id:
-            new_articles = []
-            for entry in feed.entries:
-                entry_id = extract_article_id(entry.link)
-                if entry_id == last_seen_article_id:
-                    break
-                new_articles.append(entry)
+        if latest_feed_article_id > last_seen_article_id:
+            new_articles = filter_new_articles(feed.entries, last_seen_article_id)
 
             if new_articles:
-                # Newest articles are at the beginning of the feed,
-                # but we want to report them oldest to newest.
-                new_articles.reverse()
-
                 # Update the last seen article ID in DynamoDB
                 table.put_item(
                     Item={
@@ -111,7 +125,7 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
                     }
                 )
                 logger.info(
-                    "Updated last seen article ID to: %s", latest_feed_article_id
+                    "Updated last seen article ID to: %d", latest_feed_article_id
                 )
 
                 message_body = "新しいスピッツのニュースがあります！\n\n"
@@ -155,7 +169,7 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
                 }
         else:
             logger.info(
-                "No new news found. Latest article ID is still %s.",
+                "No new news found. Latest article ID is still %d.",
                 last_seen_article_id,
             )
             return {

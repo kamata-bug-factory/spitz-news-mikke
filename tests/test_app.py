@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.app import extract_article_id, lambda_handler
+from src.app import extract_article_id, filter_new_articles, lambda_handler
 
 
 def test_extract_article_id() -> None:
@@ -21,6 +21,38 @@ def test_extract_article_id() -> None:
     # Test empty string (results in int("") after rstrip/split, raising ValueError)
     with pytest.raises(ValueError):
         extract_article_id("")
+
+
+def test_filter_new_articles_logic() -> None:
+    """Test the logic of filtering new articles without any AWS mocks."""
+
+    class Entry:
+        def __init__(self, link: str) -> None:
+            self.link = link
+
+    entries = [
+        Entry("https://spitz-web.com/news/7915/"),
+        Entry("https://spitz-web.com/news/7914/"),
+        Entry("https://spitz-web.com/news/7913/"),
+    ]
+
+    # Case 1: All are new
+    new = filter_new_articles(entries, 7912)
+    assert len(new) == 3
+    assert extract_article_id(new[0].link) == 7913  # Oldest first
+
+    # Case 2: Some are new
+    new = filter_new_articles(entries, 7914)
+    assert len(new) == 1
+    assert extract_article_id(new[0].link) == 7915
+
+    # Case 3: None are new
+    new = filter_new_articles(entries, 7915)
+    assert len(new) == 0
+
+    # Case 4: Last seen ID is higher than any in feed (should return empty)
+    new = filter_new_articles(entries, 8000)
+    assert len(new) == 0
 
 
 @patch("src.app.boto3.resource")
