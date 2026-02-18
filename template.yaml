@@ -27,7 +27,7 @@ Resources:
           # The following variables are for local development (LocalStack)
           # and are overridden by env.json during 'sam local invoke'.
           AWS_ENDPOINT_URL: ""
-          AWS_DEFAULT_REGION: ""
+          TARGET_REGION: ""
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref AppConfigTable
