@@ -59,7 +59,15 @@ mise run test:local
 
 ## デプロイ (AWS 本番環境)
 
-### 1. 通知先メールアドレスの設定
+### 1. AWS 認証
+
+デプロイ先の AWS アカウントに対して認証を行います。
+
+```bash
+aws configure
+```
+
+### 2. 通知先メールアドレスの設定
 
 `samconfig.toml` 内の `parameter_overrides` にある `your-email@example.com` を、自身の受信可能なメールアドレスに書き換えます。
 
@@ -67,7 +75,7 @@ mise run test:local
 parameter_overrides = "NotificationEmail=\"your-email@example.com\""
 ```
 
-### 2. ビルド & デプロイ
+### 3. ビルド & デプロイ
 
 ```bash
 # ビルド
