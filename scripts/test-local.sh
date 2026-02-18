@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# 1. LocalStackの起動
-echo "Ensuring LocalStack is running..."
+# 1. LocalStackの起動と初期化
+echo "Ensuring LocalStack is running and initializing resources..."
 docker compose up -d
 
 # LocalStackが起動してリクエストを受け付けられるようになるまで待機
