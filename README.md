@@ -9,6 +9,14 @@
 3.  **通知**: 前回のタイムスタンプより新しい記事がある場合、SNS Topic (`news-fetcher-notifications`) 経由でメール通知を送信します。
 4.  **定期実行**: EventBridge (Scheduler) により、毎時 10 分に自動実行されます。
 
+## システム構成図
+
+システムの全体像とデータフローです。詳細は [システム構成](./docs/architecture.md) を参照してください。
+
+<p align="center">
+  <img src="./docs/diagrams/infrastructure-aws.png" alt="System Architecture" width="800">
+</p>
+
 ## 技術スタック
 
 -   **Language**: Python 3.12
