@@ -64,7 +64,11 @@ mise run test:local
 デプロイ先の AWS アカウントに対して認証を行います。
 
 ```bash
-aws configure
+# 接続設定の作成（1度だけ）
+aws configure sso
+
+# ログイン
+aws sso login --profile <your-profile>
 ```
 
 ### 2. 通知先メールアドレスの設定
