@@ -11,7 +11,7 @@
 
 ## システム構成
 
-システムの全体像とデータフローです。詳細は [こちら](./docs/architecture.md) を参照してください。
+システムの全体像とデータフローです。詳細は [アーキテクチャ設計書](./docs/architecture.md) を参照してください。
 
 <p align="center">
   <img src="./docs/diagrams/infrastructure-aws.png" alt="System Architecture">
