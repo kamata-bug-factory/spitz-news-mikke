@@ -14,7 +14,7 @@
 システムの全体像とデータフローです。詳細は [システム構成](./docs/architecture.md) を参照してください。
 
 <p align="center">
-  <img src="./docs/diagrams/infrastructure-aws.png" alt="System Architecture" width="800">
+  <img src="./docs/diagrams/infrastructure-aws.png" alt="System Architecture">
 </p>
 
 ## 技術スタック
