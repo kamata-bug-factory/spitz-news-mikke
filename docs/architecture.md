@@ -59,4 +59,4 @@ graph TD
 
 ## ローカル開発とモック
 - **LocalStack**: 本番と同等の AWS API エンドポイントをローカルに構築。
-- **環境切り替え**: `AWS_SAM_LOCAL` またはカスタム環境変数により、`boto3.client` 作成時に `endpoint_url` を `http://localhost:4566` に向けるよう制御。
+- **環境切り替え**: `AWS_SAM_LOCAL` により、`boto3.client` 作成時に `endpoint_url` を `http://localhost:4566` に向けるよう制御。
