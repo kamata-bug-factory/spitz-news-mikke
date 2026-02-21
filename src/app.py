@@ -169,9 +169,9 @@ def lambda_handler(event: EventBridgeEvent, context: Context) -> dict[str, Any]:
 
         feed = feedparser.parse(SPITZ_NEWS_FEED_URL)
         if not feed.entries:
-            logger.info("No entries found in the Spitz news feed.")
+            logger.error("No entries found in the Spitz news feed.")
             return {
-                "statusCode": 200,
+                "statusCode": 500,
                 "body": json.dumps({"message": "No entries found in feed."}),
             }
 

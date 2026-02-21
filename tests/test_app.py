@@ -260,7 +260,7 @@ def test_lambda_handler_empty_feed(
 
         response = lambda_handler(cast(Any, {}), MagicMock())
 
-        assert response["statusCode"] == 200
+        assert response["statusCode"] == 500
         assert "No entries found in feed" in response["body"]
         
         # Verify side effects are NOT called
