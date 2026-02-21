@@ -1,9 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: >
-  spitz-news-mikke
-
-  Sample SAM Template for spitz-news-mikke
+Description: "SAM Template for spitz-news-mikke"
 
 Parameters:
   NotificationEmail:
