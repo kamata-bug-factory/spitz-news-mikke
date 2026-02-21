@@ -1,17 +1,28 @@
+from __future__ import annotations
+
 import calendar
 import json
 import logging
 import os
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import boto3
 import feedparser
-from aws_lambda_typing.context import Context
+
+if TYPE_CHECKING:
+    from aws_lambda_typing.context import Context
+    from aws_lambda_typing.events import EventBridgeEvent
+    from mypy_boto3_dynamodb import DynamoDBServiceResource
+    from mypy_boto3_dynamodb.service_resource import Table
+    from mypy_boto3_sns import SNSClient
 
 # Initialize logging
 logger = logging.getLogger()
 logger.setLevel(os.environ.get("LOG_LEVEL", "INFO"))
+
+SPITZ_NEWS_FEED_URL = "https://spitz-web.com/news/feed"
+LAST_SEEN_KEY = "last_seen_pub_timestamp"
 
 
 def filter_new_articles(feed_entries: list[Any], last_seen_timestamp: int) -> list[Any]:
@@ -36,12 +47,97 @@ def filter_new_articles(feed_entries: list[Any], last_seen_timestamp: int) -> li
     return new_articles
 
 
-def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
+def get_aws_resources() -> tuple[DynamoDBServiceResource, SNSClient]:
+    """Initializes and returns AWS DynamoDB and SNS clients.
+
+    Returns:
+        tuple[DynamoDBServiceResource, SNSClient]: A tuple containing the
+            DynamoDB resource and SNS client.
+    """
+    if os.environ.get("AWS_SAM_LOCAL") == "true":
+        endpoint_url = os.environ.get("AWS_ENDPOINT_URL")
+        logger.info("Running in SAM Local. Endpoint: %s", endpoint_url)
+        dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url)
+        sns = boto3.client("sns", endpoint_url=endpoint_url)
+    else:
+        dynamodb = boto3.resource("dynamodb")
+        sns = boto3.client("sns")
+    return dynamodb, sns
+
+
+def get_last_seen_timestamp(table: Table) -> int:
+    """Retrieves the last seen publication timestamp from DynamoDB.
+
+    Args:
+        table (Table): The DynamoDB Table resource.
+
+    Returns:
+        int: The last seen timestamp (UTC). Defaults to 0 if not found.
+
+    Raises:
+        TypeError: If the retrieved timestamp has an unexpected type.
+    """
+    response = table.get_item(Key={"settingName": LAST_SEEN_KEY})
+    item = response.get("Item")
+    if not item:
+        return 0
+
+    val = item.get("value")
+    if val is None:
+        return 0
+
+    if isinstance(val, (int, float, Decimal)):
+        return int(val)
+
+    raise TypeError(f"Unexpected type for timestamp: {type(val)}")
+
+
+def update_last_seen_timestamp(table: Table, timestamp: int) -> None:
+    """Updates the last seen publication timestamp in DynamoDB.
+
+    Args:
+        table (Table): The DynamoDB Table resource.
+        timestamp (int): The new timestamp to save.
+    """
+    table.put_item(
+        Item={
+            "settingName": LAST_SEEN_KEY,
+            "value": timestamp,
+        }
+    )
+    logger.info("Updated last seen timestamp to: %d", timestamp)
+
+
+def send_notification(sns: SNSClient, topic_arn: str, new_articles: list[Any]) -> None:
+    """Formats and sends an SNS notification for new articles.
+
+    Args:
+        sns (SNSClient): The SNS client.
+        topic_arn (str): The SNS topic ARN.
+        new_articles (list[Any]): A list of new article entries.
+    """
+    message_body = "新しいスピッツのニュースがあります！\n\n"
+    for article in new_articles:
+        message_body += f"タイトル: {article.title}\n"
+        message_body += f"URL: {article.link}\n"
+        message_body += f"公開日: {article.published}\n\n"
+
+    sns.publish(
+        TopicArn=topic_arn,
+        Message=message_body,
+        Subject=(
+            f"【スピッツニュース】新着ニュース ({len(new_articles)}件) があります！"
+        ),
+    )
+    logger.info("Published SNS notification with %d new articles.", len(new_articles))
+
+
+def lambda_handler(event: EventBridgeEvent, context: Context) -> dict[str, Any]:
     """
     Handles incoming EventBridge scheduled events to check for new Spitz news.
 
     Args:
-        event (dict[str, Any]): The EventBridge scheduled event.
+        event (EventBridgeEvent): The EventBridge scheduled event.
         context (Context): The Lambda runtime context object.
 
     Returns:
@@ -64,37 +160,14 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
             ),
         }
 
-    if os.environ.get("AWS_SAM_LOCAL") == "true":
-        endpoint_url = os.environ.get("AWS_ENDPOINT_URL")
-        logger.info("Running in SAM Local. Endpoint: %s", endpoint_url)
-        dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url)
-        sns = boto3.client("sns", endpoint_url=endpoint_url)
-    else:
-        dynamodb = boto3.resource("dynamodb")
-        sns = boto3.client("sns")
-
-    table = dynamodb.Table(table_name)
-
     try:
-        # Get the last seen publication timestamp from DynamoDB
-        response = table.get_item(Key={"settingName": "last_seen_pub_timestamp"})
-        item = response.get("Item")
-        raw_last_timestamp = item.get("value") if item else None
+        dynamodb, sns = get_aws_resources()
+        table = dynamodb.Table(table_name)
 
-        if raw_last_timestamp is None:
-            last_seen_timestamp = 0
-        elif isinstance(raw_last_timestamp, (int, float, Decimal)):
-            last_seen_timestamp = int(raw_last_timestamp)
-        else:
-            raise TypeError(
-                f"Unexpected type for timestamp: {type(raw_last_timestamp)}"
-            )
-
+        last_seen_timestamp = get_last_seen_timestamp(table)
         logger.info("Last seen pub timestamp: %d", last_seen_timestamp)
 
-        SPITZ_NEWS_FEED_URL = "https://spitz-web.com/news/feed"
         feed = feedparser.parse(SPITZ_NEWS_FEED_URL)
-
         if not feed.entries:
             logger.info("No entries found in the Spitz news feed.")
             return {
@@ -104,50 +177,7 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
 
         new_articles = filter_new_articles(feed.entries, last_seen_timestamp)
 
-        if new_articles:
-            # The newest article's timestamp will be the new baseline
-            latest_feed_timestamp = calendar.timegm(feed.entries[0].published_parsed)
-
-            # Update the last seen timestamp in DynamoDB
-            table.put_item(
-                Item={
-                    "settingName": "last_seen_pub_timestamp",
-                    "value": latest_feed_timestamp,
-                }
-            )
-            logger.info("Updated last seen timestamp to: %d", latest_feed_timestamp)
-
-            message_body = "新しいスピッツのニュースがあります！\n\n"
-            for article in new_articles:
-                message_body += f"タイトル: {article.title}\n"
-                message_body += f"URL: {article.link}\n"
-                message_body += f"公開日: {article.published}\n\n"
-
-            sns.publish(
-                TopicArn=topic_arn,
-                Message=message_body,
-                Subject=(
-                    f"【スピッツニュース】新着ニュース "
-                    f"({len(new_articles)}件) があります！"
-                ),
-            )
-            logger.info(
-                "Published SNS notification with %d new articles.",
-                len(new_articles),
-            )
-
-            return {
-                "statusCode": 200,
-                "body": json.dumps(
-                    {
-                        "message": (
-                            f"Found and notified about {len(new_articles)} "
-                            "new articles."
-                        )
-                    }
-                ),
-            }
-        else:
+        if not new_articles:
             logger.info(
                 "No new news found. Baseline timestamp remains %d.",
                 last_seen_timestamp,
@@ -156,6 +186,24 @@ def lambda_handler(event: dict[str, Any], context: Context) -> dict[str, Any]:
                 "statusCode": 200,
                 "body": json.dumps({"message": "No new news found."}),
             }
+
+        # Update the last seen timestamp in DynamoDB
+        latest_feed_timestamp = calendar.timegm(feed.entries[0].published_parsed)
+        update_last_seen_timestamp(table, latest_feed_timestamp)
+
+        # Send notification
+        send_notification(sns, topic_arn, new_articles)
+
+        return {
+            "statusCode": 200,
+            "body": json.dumps(
+                {
+                    "message": (
+                        f"Found and notified about {len(new_articles)} new articles."
+                    )
+                }
+            ),
+        }
 
     except Exception as e:
         logger.error("Error processing news feed: %s", e)
