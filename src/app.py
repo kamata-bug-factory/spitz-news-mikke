@@ -22,7 +22,7 @@ def filter_new_articles(feed_entries: list[Any], last_seen_timestamp: int) -> li
         last_seen_timestamp (int): UTC timestamp of the last processed article.
 
     Returns:
-        list[Any]: A list of new article entries, sorted from oldest to newest.
+        list[Any]: A list of new article entries, sorted from newest to oldest.
     """
     new_articles = []
     for entry in feed_entries:
@@ -32,9 +32,7 @@ def filter_new_articles(feed_entries: list[Any], last_seen_timestamp: int) -> li
             break
         new_articles.append(entry)
 
-    # Newest articles are at the beginning of the feed,
-    # but we want to report them oldest to newest.
-    new_articles.reverse()
+    # Newest articles are at the beginning of the feed.
     return new_articles
 
 

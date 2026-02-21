@@ -29,6 +29,9 @@ def test_filter_new_articles_logic() -> None:
     # Case 1: All are new
     new = filter_new_articles(entries, ts_17 - 1)
     assert len(new) == 2
+    # Newest should come first
+    assert "7915" in new[0].link
+    assert "7914" in new[1].link
 
     # Case 2: One is new
     new = filter_new_articles(entries, ts_17)
