@@ -1,6 +1,6 @@
 # spitz-news-mikke
 
-スピッツの公式サイト ([spitz-web.com](https://spitz-web.com/)) のニュースフィードを定期的に確認し、新着ニュースがあれば SNS (Email) で通知する AWS SAM アプリケーションです。
+スピッツ公式サイト ([spitz-web.com](https://spitz-web.com/)) のニュースフィードを定期的に確認し、新着ニュースがあればメール通知するサーバーレスアプリケーションです。
 
 ## 概要
 

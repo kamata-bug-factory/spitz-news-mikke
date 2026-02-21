@@ -58,5 +58,5 @@ graph TD
 3. **冪等性**: 同じフィードを複数回取得しても、DynamoDB のタイムスタンプが更新済みであれば SNS 通知は飛ばない設計。
 
 ## ローカル開発とモック
-- **LocalStack**: 本番と同等の AWS API エンドポイントをローカルに構築。
+- **LocalStack**: 本番の AWS 環境を模したサービスエンドポイントをローカルに構築。
 - **環境切り替え**: `AWS_SAM_LOCAL` により、`boto3.client` 作成時に `endpoint_url` を `http://localhost:4566` に向けるよう制御。
