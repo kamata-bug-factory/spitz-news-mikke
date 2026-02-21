@@ -1,9 +1,11 @@
 # Project: spitz-news-mikke
 
 ## 1. 概要
-- スピッツのニュース一覧フィード (https://spitz-web.com/news/feed) をパースする。
-- 新着ニュースがある場合、DynamoDB で既読管理を行い、SNS経由でメール通知する。
-- AWS SAM を使用し、EventBridge (Scheduler) で毎時10分に定期実行する。
+スピッツ公式ニュースの RSS フィードを定期監視し、新着記事をメール通知するサーバーレスアプリケーション。
+- **データ取得**: `https://spitz-web.com/news/feed` を `feedparser` で取得・解析する。
+- **既読管理**: DynamoDB (`news-fetcher-app-settings`) の `last_seen_pub_timestamp` 項目の値（UTC タイムスタンプ）と記事の公開日時を比較して新着判定を行う。
+- **通知**: 新着記事がある場合、SNS トピック経由で件数・タイトル・URL を含むメールを送信し、DynamoDB のタイムスタンプを最新記事のものに更新する。
+- **スケジュール**: AWS SAM を使用してデプロイされ、EventBridge (Scheduler) により毎時 10 分に Lambda 関数が実行される。
 
 ## 2. 技術スタック
 - Language: Python 3.12 (Managed by mise)
@@ -22,7 +24,7 @@
 - `sam build` 前には必ず `uv export --format requirements-txt > src/requirements.txt` を実行すること。
 - テストコードは `tests/` フォルダ配下に作成し、`uv run pytest` で実行すること。
 
-## 4. 実行・ビルド方法
+## 4. 主要コマンド
 - 依存関係インストール: `uv sync`
 - 静的解析 (Linter/Type Check): `uv run ruff check src/ && uv run mypy src/`
 - LocalStack 起動: `docker compose up -d`
