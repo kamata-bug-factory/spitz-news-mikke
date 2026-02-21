@@ -8,10 +8,10 @@
 - **スケジュール**: AWS SAM を使用してデプロイされ、EventBridge (Scheduler) により毎時 10 分に Lambda 関数が実行される。
 
 ## 2. 技術スタック
-- Language: Python 3.12 (Managed by mise)
-- Package Manager: uv
-- Infrastructure: AWS SAM (Lambda, DynamoDB, SNS)
-- Local Development: 
+- **Language**: Python 3.12 (Managed by mise)
+- **Package Manager**: uv
+- **Infrastructure**: AWS SAM (Lambda, DynamoDB, SNS)
+- **Local Development**: 
   - LocalStack (Endpoint: http://localhost:4566)
   - aws-sam-cli-local / awscli-local (Managed by uv)
 
@@ -25,11 +25,11 @@
 - テストコードは `tests/` フォルダ配下に作成し、`uv run pytest` で実行すること。
 
 ## 4. 主要コマンド
-- 依存関係インストール: `uv sync`
-- 静的解析 (Linter/Type Check): `uv run ruff check src/ && uv run mypy src/`
-- LocalStack 起動: `docker compose up -d`
-- ビルド: `uv export --format requirements-txt > src/requirements.txt && sam build`
-- ローカル実行テスト: `sam local invoke [FunctionName] --event events/schedule_event.json --env-vars env.json`
-- デプロイ:
+- **依存関係インストール**: `uv sync`
+- **静的解析 (Linter/Type Check)**: `uv run ruff check src/ && uv run mypy src/`
+- **LocalStack 起動**: `docker compose up -d`
+- **ビルド**: `uv export --format requirements-txt > src/requirements.txt && sam build`
+- **ローカル実行テスト**: `sam local invoke [FunctionName] --event events/schedule_event.json --env-vars env.json`
+- **デプロイ**:
   - 本番環境: `sam deploy --guided`
   - ローカル検証環境: `uv run samlocal deploy --guided`
