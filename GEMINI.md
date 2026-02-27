@@ -13,7 +13,7 @@
 - **Infrastructure**: AWS SAM (Lambda, DynamoDB, SNS)
 - **Local Development**: 
   - LocalStack (Endpoint: http://localhost:4566)
-  - aws-sam-cli-local / awscli-local (Managed by uv)
+  - awscli-local (Managed by uv)
 
 ## 3. コーディングルール
 - Python の関数には必ず Google スタイルの Docstring を記述すること。
@@ -30,6 +30,4 @@
 - **LocalStack 起動**: `docker compose up -d`
 - **ビルド**: `uv export --format requirements-txt > src/requirements.txt && sam build`
 - **ローカル実行テスト**: `sam local invoke [FunctionName] --event events/schedule_event.json --env-vars env.json`
-- **デプロイ**:
-  - 本番環境: `sam deploy --guided`
-  - ローカル検証環境: `uv run samlocal deploy --guided`
+- **デプロイ**: `sam deploy --guided`

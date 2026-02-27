@@ -22,7 +22,7 @@
 -   **Language**: Python 3.12
 -   **Package Manager**: uv
 -   **Infrastructure**: AWS SAM (Lambda, DynamoDB, SNS, EventBridge)
--   **Local Development**: LocalStack, aws-sam-cli-local, awscli-local
+-   **Local Development**: LocalStack, awscli-local
 
 ## 前提条件
 
