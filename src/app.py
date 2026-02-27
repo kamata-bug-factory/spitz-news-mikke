@@ -13,6 +13,7 @@ import feedparser
 if TYPE_CHECKING:
     from aws_lambda_typing.context import Context
     from aws_lambda_typing.events import EventBridgeEvent
+    from feedparser import FeedParserDict
     from mypy_boto3_dynamodb import DynamoDBServiceResource
     from mypy_boto3_dynamodb.service_resource import Table
     from mypy_boto3_sns import SNSClient
@@ -25,15 +26,17 @@ SPITZ_NEWS_FEED_URL = "https://spitz-web.com/news/feed"
 LAST_SEEN_KEY = "last_seen_pub_timestamp"
 
 
-def filter_new_articles(feed_entries: list[Any], last_seen_timestamp: int) -> list[Any]:
+def filter_new_articles(
+    feed_entries: list[FeedParserDict], last_seen_timestamp: int
+) -> list[FeedParserDict]:
     """Filters new articles from the feed entries based on the last seen timestamp.
 
     Args:
-        feed_entries (list[Any]): A list of feed entry objects.
+        feed_entries (list[FeedParserDict]): A list of feed entry objects.
         last_seen_timestamp (int): UTC timestamp of the last processed article.
 
     Returns:
-        list[Any]: A list of new article entries, sorted from newest to oldest.
+        list[FeedParserDict]: A list of new article entries, sorted from newest to oldest.
     """
     new_articles = []
     for entry in feed_entries:
@@ -108,13 +111,15 @@ def update_last_seen_timestamp(table: Table, timestamp: int) -> None:
     logger.info("Updated last seen timestamp to: %d", timestamp)
 
 
-def send_notification(sns: SNSClient, topic_arn: str, new_articles: list[Any]) -> None:
+def send_notification(
+    sns: SNSClient, topic_arn: str, new_articles: list[FeedParserDict]
+) -> None:
     """Formats and sends an SNS notification for new articles.
 
     Args:
         sns (SNSClient): The SNS client.
         topic_arn (str): The SNS topic ARN.
-        new_articles (list[Any]): A list of new article entries.
+        new_articles (list[FeedParserDict]): A list of new article entries.
     """
     message_body = "新しいスピッツのニュースがあります！\n\n"
     for article in new_articles:
