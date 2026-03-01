@@ -4,6 +4,8 @@ import calendar
 import json
 import logging
 import os
+import time
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
@@ -111,6 +113,23 @@ def update_last_seen_timestamp(table: Table, timestamp: int) -> None:
     logger.info("Updated last seen timestamp to: %d", timestamp)
 
 
+def convert_utc_struct_time_to_jst_string(utc_struct_time: time.struct_time) -> str:
+    """Converts a UTC struct_time to a JST formatted string.
+
+    Args:
+        utc_struct_time (time.struct_time): The time in UTC.
+
+    Returns:
+        str: The formatted time string in JST (YYYY/MM/DD HH:mm).
+    """
+    JST = timezone(timedelta(hours=9))
+    # struct_time to datetime (UTC)
+    dt_utc = datetime(*utc_struct_time[:6], tzinfo=timezone.utc)
+    # Convert to JST
+    dt_jst = dt_utc.astimezone(JST)
+    return dt_jst.strftime("%Y/%m/%d %H:%M")
+
+
 def send_notification(
     sns: SNSClient, topic_arn: str, new_articles: list[FeedParserDict]
 ) -> None:
@@ -125,7 +144,8 @@ def send_notification(
     for article in new_articles:
         message_body += f"タイトル: {article.title}\n"
         message_body += f"URL: {article.link}\n"
-        message_body += f"公開日: {article.published}\n\n"
+        formatted_date = convert_utc_struct_time_to_jst_string(article.published_parsed)
+        message_body += f"公開日: {formatted_date}\n\n"
 
     sns.publish(
         TopicArn=topic_arn,

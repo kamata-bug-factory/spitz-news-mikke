@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.app import (
+    convert_utc_struct_time_to_jst_string,
     filter_new_articles,
     get_aws_resources,
     get_last_seen_timestamp,
@@ -51,6 +52,19 @@ def test_filter_new_articles_logic() -> None:
     # Case 3: None are new
     new = filter_new_articles(entries, ts_18)
     assert len(new) == 0
+
+
+def test_convert_utc_struct_time_to_jst_string() -> None:
+    """Test convert_utc_struct_time_to_jst_string converts correctly."""
+    # 2026-02-18 12:00:00 UTC -> 2026-02-18 21:00:00 JST
+    utc_struct = (2026, 2, 18, 12, 0, 0, 2, 49, 0)
+    expected_jst = "2026/02/18 21:00"
+    assert convert_utc_struct_time_to_jst_string(utc_struct) == expected_jst
+
+    # 2026-01-01 00:00:00 UTC -> 2026-01-01 09:00:00 JST
+    utc_struct_ny = (2026, 1, 1, 0, 0, 0, 3, 1, 0)
+    expected_jst_ny = "2026/01/01 09:00"
+    assert convert_utc_struct_time_to_jst_string(utc_struct_ny) == expected_jst_ny
 
 
 @patch("src.app.boto3.resource")
@@ -125,7 +139,9 @@ def test_send_notification(mock_sns_client: MagicMock) -> None:
     mock_article = MagicMock()
     mock_article.title = "News Title"
     mock_article.link = "https://example.com/news/1"
-    mock_article.published = "2026-02-18"
+    # published_parsed is required for JST conversion
+    # 2026-02-18 12:00:00 UTC -> 2026/02/18 21:00 JST
+    mock_article.published_parsed = (2026, 2, 18, 12, 0, 0, 2, 49, 0)
 
     send_notification(mock_sns, "arn:aws:sns:topic", [mock_article])
 
@@ -134,6 +150,8 @@ def test_send_notification(mock_sns_client: MagicMock) -> None:
     assert kwargs["TopicArn"] == "arn:aws:sns:topic"
     assert "News Title" in kwargs["Message"]
     assert "https://example.com/news/1" in kwargs["Message"]
+    # Check for JST formatted date
+    assert "公開日: 2026/02/18 21:00" in kwargs["Message"]
     assert "【スピッツニュース】" in kwargs["Subject"]
 
 
